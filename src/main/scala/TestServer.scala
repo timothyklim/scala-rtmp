@@ -29,24 +29,49 @@ object TestServer extends App {
 
     def ascii(bytes: ByteString): String = {
       val result = bytes.decodeString("US-ASCII").trim
+
       println("result: %s" format result)
+
       result
     }
 
     def parseVersion(bytes: ByteString): Byte = {
       val result = bytes.head
+
       println("version: %s" format result)
+
+      result
+    }
+
+    def parseTime(bytes: ByteString): Int = {
+      val result = (0 to 3).foldLeft(0) {
+        (result, position) => result | (bytes(position) & 0xFF) << (24 - position * 8 % 32)
+      }
+
+      println("time: %s" format result)
+
       result
     }
 
     def processRequest(socket: IO.SocketHandle): IO.Iteratee[Unit] = {
       IO repeat {
         for {
-          versionBytes <- IO.take(1)
+          versionBytes <- IO take 1
           version = parseVersion(versionBytes)
-          bytes <- IO takeAll
+
+          timeBytes <- IO take 4
+          time = parseTime(timeBytes)
+
+          zeroBytes <- IO take 4
+          randomBytes <- IO take 1528
         } yield {
-          ascii(bytes)
+          if (0x3 == version) {
+//            ascii(bytes)
+
+            for (time <- timeBytes) {
+              println("%s => %X" format(time, time))
+            }
+          }
         }
       }
     }
@@ -54,5 +79,4 @@ object TestServer extends App {
 
   val system = ActorSystem()
   val server = system.actorOf(Props(new RTMPServer(1935)))
-
 }
